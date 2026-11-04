@@ -9,7 +9,8 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, File, Header, HTTPException, UploadFile, Depends
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
+from urllib.parse import quote
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -20,7 +21,7 @@ from .parsers import extract_file, parse_commitment_csv, MAX_UPLOAD_BYTES
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / "static"
 API_KEY = os.getenv("COMMITMENTGRAPH_API_KEY", "").strip()
-app = FastAPI(title="CommitmentGraph", version="1.0.0",
+app = FastAPI(title="CommitmentGraph", version="1.0.1",
               description="Evidence-linked business commitment reconstruction.",
               docs_url="/api/docs", redoc_url=None)
 
@@ -57,7 +58,7 @@ def startup():
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "product": "CommitmentGraph", "version": "1.0.0"}
+    return {"status": "ok", "product": "CommitmentGraph", "version": "1.0.1"}
 
 @app.get("/api/overview", dependencies=[Depends(authorize)])
 def overview():
@@ -145,9 +146,23 @@ def list_evidence():
 @app.get("/api/evidence/{evidence_id}", dependencies=[Depends(authorize)])
 def evidence_detail(evidence_id: str):
     with connect() as conn:
-        row = conn.execute("SELECT * FROM evidence WHERE id=?", (evidence_id,)).fetchone()
+        row = conn.execute("""SELECT id,filename,media_type,sha256,extracted_text,byte_size,created_at,
+          length(file_bytes) AS original_size FROM evidence WHERE id=?""", (evidence_id,)).fetchone()
     if not row: raise HTTPException(404, "Evidence not found.")
-    return dict(row)
+    result = dict(row)
+    result["original_available"] = bool(result.pop("original_size"))
+    return result
+
+@app.get("/api/evidence/{evidence_id}/original", dependencies=[Depends(authorize)])
+def download_evidence_original(evidence_id: str):
+    with connect() as conn:
+        row = conn.execute("SELECT filename,media_type,file_bytes FROM evidence WHERE id=?", (evidence_id,)).fetchone()
+    if not row: raise HTTPException(404, "Evidence not found.")
+    if not row["file_bytes"]:
+        raise HTTPException(410, "The original file is unavailable for this legacy evidence record.")
+    filename = quote(Path(row["filename"]).name, safe="")
+    return Response(content=bytes(row["file_bytes"]), media_type=row["media_type"] or "application/octet-stream",
+                    headers={"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"})
 
 @app.post("/api/evidence", status_code=201, dependencies=[Depends(authorize)])
 async def upload_evidence(file: UploadFile = File(...)):
@@ -162,9 +177,9 @@ async def upload_evidence(file: UploadFile = File(...)):
     with transaction() as conn:
         existing = conn.execute("SELECT id FROM evidence WHERE sha256=?", (digest,)).fetchone()
         if existing: return {"id": existing["id"], "duplicate": True}
-        conn.execute("""INSERT INTO evidence(id,filename,media_type,sha256,extracted_text,byte_size,created_at)
-          VALUES(?,?,?,?,?,?,?)""",
-          (eid,file.filename or "upload",file.content_type or "application/octet-stream",digest,extracted,len(raw),now_iso()))
+        conn.execute("""INSERT INTO evidence(id,filename,media_type,sha256,extracted_text,file_bytes,byte_size,created_at)
+          VALUES(?,?,?,?,?,?,?,?)""",
+          (eid,file.filename or "upload",file.content_type or "application/octet-stream",digest,extracted,raw,len(raw),now_iso()))
     return {"id": eid, "duplicate": False, "characters_extracted": len(extracted), "sha256": digest}
 
 @app.post("/api/import/csv", dependencies=[Depends(authorize)])
