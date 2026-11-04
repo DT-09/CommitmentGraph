@@ -26,11 +26,11 @@ The relationship graph is derived from these records. It is not a separate sourc
 |---|---|---|
 | OVERDUE_COMMITMENT | Due date is before the investigation date and status is not fulfilled/cancelled | High |
 | INVALID_DUE_DATE | Stored due date is not an ISO date | Low |
-| UNAPPROVED_CHANGE | Scope-change, amendment or requirement-change event is marked unapproved | Critical |
-| FULFILMENT_UNSUPPORTED | Commitment is marked fulfilled but no delivery/handover/completion/acceptance event exists | Medium |
+| UNAPPROVED_CHANGE | Scope-change, amendment or requirement-change event is not marked reviewed or has no linked source record | Critical |
+| FULFILMENT_UNSUPPORTED | Commitment is marked fulfilled but no delivery/handover/completion/acceptance event has a linked source record | Medium |
 | BILLING_REVIEW | Billing event exists and commitment has a declared value | Low |
 
-Rules are intentionally conservative. Billing review does not extract or compare invoice amounts. An unapproved change is a review flag, not proof that approval was absent in the underlying business process.
+Rules are intentionally conservative. Billing review does not extract or compare invoice amounts. An unapproved or unsubstantiated change is a review flag, not proof that approval was absent in the underlying business process. A delivery event without a linked source record does not count as evidence of fulfilment.
 
 ## Deployment
 
