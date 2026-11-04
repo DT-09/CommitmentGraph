@@ -23,3 +23,7 @@ jobs:
       - run: node --check static/app.js && node --check static/enhancements.js
       - run: docker build --tag commitmentgraph:ci .
       - run: COMMITMENTGRAPH_API_KEY=ci-test-secret PORT=8000 docker compose config -q
+      - run: docker run -d --name commitmentgraph-smoke -e COMMITMENTGRAPH_API_KEY=ci-test-secret -p 8000:8000 commitmentgraph:ci
+      - run: for i in $(seq 1 20); do curl -fsS http://127.0.0.1:8000/api/health && exit 0; sleep 1; done; docker logs commitmentgraph-smoke; exit 1
+      - if: always()
+        run: docker rm -f commitmentgraph-smoke || true
