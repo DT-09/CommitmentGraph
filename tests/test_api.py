@@ -1,3 +1,4 @@
+import sqlite3
 from fastapi.testclient import TestClient
 from app import db
 from app.main import app
@@ -53,6 +54,14 @@ def test_uploaded_evidence_preserves_original_bytes_and_hides_blob_from_json(tmp
 def test_legacy_evidence_without_original_returns_gone(tmp_path,monkeypatch):
     monkeypatch.setattr(db,"DATA_DIR",tmp_path)
     monkeypatch.setattr(db,"DB_PATH",tmp_path/"legacy.sqlite3")
+    legacy=sqlite3.connect(db.DB_PATH)
+    legacy.execute("""CREATE TABLE evidence (
+      id TEXT PRIMARY KEY, filename TEXT NOT NULL, media_type TEXT NOT NULL,
+      sha256 TEXT NOT NULL UNIQUE, extracted_text TEXT NOT NULL,
+      byte_size INTEGER NOT NULL, created_at TEXT NOT NULL
+    )""")
+    legacy.commit()
+    legacy.close()
     db.initialize()
     stamp="2026-01-01T00:00:00+00:00"
     with db.transaction() as conn:
@@ -63,3 +72,17 @@ def test_legacy_evidence_without_original_returns_gone(tmp_path,monkeypatch):
         assert detail.json()["original_available"] is False
         response=client.get("/api/evidence/D-OLD/original")
         assert response.status_code==410
+
+
+def test_original_download_detects_corrupted_stored_bytes(tmp_path,monkeypatch):
+    monkeypatch.setattr(db,"DATA_DIR",tmp_path)
+    monkeypatch.setattr(db,"DB_PATH",tmp_path/"integrity.sqlite3")
+    db.initialize()
+    with TestClient(app) as client:
+        uploaded=client.post("/api/evidence",files={"file":("source.txt",b"Original approved scope","text/plain")})
+        evidence_id=uploaded.json()["id"]
+        with db.transaction() as conn:
+            conn.execute("UPDATE evidence SET file_bytes=? WHERE id=?",(b"tampered",evidence_id))
+        response=client.get(f"/api/evidence/{evidence_id}/original")
+        assert response.status_code==500
+        assert "SHA-256" in response.json()["detail"]
