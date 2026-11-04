@@ -17,11 +17,20 @@ export async function onRequest({ request, env }) {
     return Response.json({ detail: "The API origin must use HTTPS." }, { status: 500 });
   }
 
+  const apiKey = String(env.COMMITMENTGRAPH_API_KEY || "").trim();
+  if (!apiKey) {
+    return Response.json(
+      { detail: "The API proxy secret is not configured. Set COMMITMENTGRAPH_API_KEY in the Cloudflare Pages environment." },
+      { status: 503, headers: { "Cache-Control": "no-store" } }
+    );
+  }
+
   const incoming = new URL(request.url);
   const target = new URL(incoming.pathname + incoming.search, upstream.origin);
   const headers = new Headers(request.headers);
   headers.delete("host");
   headers.delete("cookie");
+  headers.set("x-api-key", apiKey);
 
   const init = {
     method: request.method,
