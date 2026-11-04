@@ -13,7 +13,7 @@ PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS evidence (
   id TEXT PRIMARY KEY, filename TEXT NOT NULL, media_type TEXT NOT NULL,
   sha256 TEXT NOT NULL UNIQUE, extracted_text TEXT NOT NULL,
-  byte_size INTEGER NOT NULL, created_at TEXT NOT NULL
+  file_bytes BLOB NOT NULL DEFAULT X'', byte_size INTEGER NOT NULL, created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS commitments (
   id TEXT PRIMARY KEY, title TEXT NOT NULL, counterparty TEXT NOT NULL DEFAULT '',
@@ -76,3 +76,6 @@ def transaction():
 def initialize() -> None:
     with connect() as conn:
         conn.executescript(SCHEMA)
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(evidence)")}
+        if "file_bytes" not in columns:
+            conn.execute("ALTER TABLE evidence ADD COLUMN file_bytes BLOB NOT NULL DEFAULT X''")
