@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#111713">
+  <meta name="description" content="Reconstruct business commitments. Trace every finding to its source evidence.">
+  <title>CommitmentGraph — Evidence-led commitment intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="/" aria-label="CommitmentGraph home"><span class="brand-mark">C<span>G</span></span><span class="brand-name">COMMITMENT<span>GRAPH</span></span></a>
+      <div class="workspace-label">WORKSPACE <span class="live-dot"></span></div>
+      <nav class="nav" aria-label="Primary navigation">
+        <button class="nav-item active" data-view="overview"><span>◫</span> Overview</button>
+        <button class="nav-item" data-view="commitments"><span>⌘</span> Commitments</button>
+        <button class="nav-item" data-view="evidence"><span>▤</span> Evidence library</button>
+        <button class="nav-item" data-view="findings"><span>⌁</span> Investigations <span class="nav-count" id="nav-findings">0</span></button>
+        <button class="nav-item" data-view="graph"><span>◎</span> Relationship graph</button>
+        <button class="nav-item" data-view="reports"><span>▥</span> Reports</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="integrity-card"><div class="integrity-icon">◈</div><div><strong>Evidence-first by design</strong><small>Every finding remains traceable.</small></div></div>
+        <button class="nav-item" data-view="settings"><span>⚙</span> Settings</button>
+        <div class="sidebar-foot">COMMITMENTGRAPH <span>V1.0.0</span></div>
+      </div>
+    </aside>
+    <main class="main">
+      <header class="topbar">
+        <div class="breadcrumb"><span>WORKSPACE</span><b>/</b><strong id="page-name">Overview</strong></div>
+        <div class="top-actions"><span class="system-status"><i></i> SYSTEM OPERATIONAL</span><button class="icon-btn" id="refresh-btn" title="Refresh data">↻</button><button class="user-chip" id="api-key-btn">API KEY <span>↗</span></button></div>
+      </header>
+      <div class="content">
+        <section class="view active" id="view-overview">
+          <div class="page-heading"><div><div class="eyebrow">OPERATIONAL INTELLIGENCE / 01</div><h1>Commitment overview</h1><p>See what was promised, what changed, and what the evidence supports.</p></div><div class="heading-actions"><button class="btn btn-quiet" data-action="upload">＋ Add evidence</button><button class="btn btn-primary" data-action="new-commitment">＋ New commitment</button></div></div>
+          <div class="metric-grid"><article class="metric"><div class="metric-label">TOTAL COMMITMENTS <span>↗</span></div><div class="metric-value" id="m-commitments">—</div><div class="metric-note">Recorded obligations</div></article><article class="metric"><div class="metric-label">ACTIVE COMMITMENTS <span>◷</span></div><div class="metric-value" id="m-open">—</div><div class="metric-note">Open, in progress or blocked</div></article><article class="metric"><div class="metric-label">OPEN FINDINGS <span>⌁</span></div><div class="metric-value" id="m-findings">—</div><div class="metric-note"><b id="m-critical">—</b> critical items</div></article><article class="metric"><div class="metric-label">SOURCE RECORDS <span>▤</span></div><div class="metric-value" id="m-evidence">—</div><div class="metric-note"><span id="m-events">—</span> recorded events</div></article></div>
+          <div class="dashboard-grid"><section class="panel"><div class="panel-head"><div><div class="eyebrow">PRIORITY QUEUE</div><h2>Requires review</h2></div><button class="text-btn" data-view="findings">View all →</button></div><div id="priority-list" class="priority-list"><div class="empty-state">Loading investigations…</div></div></section><section class="panel"><div class="panel-head"><div><div class="eyebrow">START HERE</div><h2>Build the evidence chain</h2></div><span class="step-count">01—03</span></div><div class="steps"><button data-action="upload"><span>01</span><div><b>Upload source records</b><small>Contracts, quotes, amendments, delivery records and invoices.</small></div><i>↗</i></button><button data-action="new-commitment"><span>02</span><div><b>Record commitments</b><small>Capture the obligation, counterparty, owner and due date.</small></div><i>↗</i></button><button data-action="investigate"><span>03</span><div><b>Run an investigation</b><small>Find deterministic control exceptions and review the evidence.</small></div><i>↗</i></button></div><div class="notice"><span>i</span> Findings are review signals, not legal conclusions or proof of wrongdoing.</div></section></div>
+          <section class="panel table-panel"><div class="panel-head"><div><div class="eyebrow">RECENT ACTIVITY</div><h2>Latest commitments</h2></div><button class="text-btn" data-view="commitments">All commitments →</button></div><div class="table-wrap"><table><thead><tr><th>COMMITMENT</th><th>COUNTERPARTY</th><th>STATUS</th><th>DUE DATE</th><th>EVENTS</th><th></th></tr></thead><tbody id="recent-commitments"><tr><td colspan="6" class="empty-cell">Loading records…</td></tr></tbody></table></div></section>
+        </section>
+        <section class="view" id="view-commitments"><div class="page-heading"><div><div class="eyebrow">OBLIGATION REGISTER / 02</div><h1>Commitments</h1><p>A structured register of promises, obligations and delivery expectations.</p></div><div class="heading-actions"><button class="btn btn-quiet" data-action="import-csv">Import CSV</button><button class="btn btn-primary" data-action="new-commitment">＋ New commitment</button></div></div><div class="toolbar"><input id="commitment-search" class="search" placeholder="Search title, counterparty or owner…"><select id="commitment-filter"><option value="all">All statuses</option><option value="open">Open</option><option value="in_progress">In progress</option><option value="blocked">Blocked</option><option value="fulfilled">Fulfilled</option><option value="cancelled">Cancelled</option></select></div><section class="panel table-panel"><div class="table-wrap"><table><thead><tr><th>COMMITMENT</th><th>COUNTERPARTY</th><th>OWNER</th><th>STATUS</th><th>DUE DATE</th><th>VALUE</th><th>EVENTS</th><th></th></tr></thead><tbody id="commitment-rows"></tbody></table></div></section></section>
+        <section class="view" id="view-evidence"><div class="page-heading"><div><div class="eyebrow">SOURCE OF TRUTH / 03</div><h1>Evidence library</h1><p>Original records and extracted text, indexed by content hash.</p></div><div class="heading-actions"><button class="btn btn-primary" data-action="upload">＋ Upload evidence</button></div></div><div class="notice wide"><span>i</span> Files are stored as extracted text and metadata in the configured application database. Do not upload sensitive personal data unless your deployment and access controls have been reviewed.</div><div id="evidence-grid" class="evidence-grid"></div></section>
+        <section class="view" id="view-findings"><div class="page-heading"><div><div class="eyebrow">EXCEPTION MANAGEMENT / 04</div><h1>Investigations</h1><p>Rule-based exceptions with explicit reasoning and linked source evidence.</p></div><div class="heading-actions"><select id="finding-filter"><option value="open">Open findings</option><option value="resolved">Resolved findings</option><option value="all">All findings</option></select><button class="btn btn-primary" data-action="investigate">↻ Run investigation</button></div></div><div id="findings-list" class="finding-list"></div></section>
+        <section class="view" id="view-graph"><div class="page-heading"><div><div class="eyebrow">RELATIONSHIP INTELLIGENCE / 05</div><h1>Commitment graph</h1><p>Explore the links between obligations, events, findings and source records.</p></div><div class="heading-actions"><button class="btn btn-quiet" data-action="refresh-graph">↻ Refresh graph</button></div></div><div class="graph-legend"><span><i class="dot commitment-dot"></i> Commitment</span><span><i class="dot evidence-dot"></i> Evidence</span><span><i class="dot event-dot"></i> Event</span><span><i class="dot finding-dot"></i> Finding</span></div><section class="panel graph-panel"><div id="graph-canvas" class="graph-canvas"><div class="empty-state">Add commitments and evidence to construct the relationship graph.</div></div></section></section>
+        <section class="view" id="view-reports"><div class="page-heading"><div><div class="eyebrow">EXPORTS & AUDIT / 06</div><h1>Reports</h1><p>Export the current register and investigation results for independent review.</p></div></div><div class="report-grid"><article class="report-card"><div class="report-icon">▤</div><div class="eyebrow">REGISTER EXPORT</div><h2>Commitment register</h2><p>Structured list of obligations, counterparties, due dates, status and source references.</p><a href="/api/reports/commitments.csv" class="btn btn-quiet download-link">Download CSV ↗</a></article><article class="report-card"><div class="report-icon">⌁</div><div class="eyebrow">EXCEPTION EXPORT</div><h2>Findings register</h2><p>Rule code, severity, reasoning, status and associated evidence IDs.</p><a href="/api/reports/findings.csv" class="btn btn-quiet download-link">Download CSV ↗</a></article><article class="report-card"><div class="report-icon">◎</div><div class="eyebrow">GRAPH DATA</div><h2>Relationship graph</h2><p>Nodes and edges connecting commitments, events, findings and evidence.</p><a href="/api/graph" class="btn btn-quiet download-link">Download JSON ↗</a></article></div><div class="notice wide"><span>!</span> Exports contain operational records. Apply your organisation's data handling, retention and access policies before sharing them.</div></section>
+        <section class="view" id="view-settings"><div class="page-heading"><div><div class="eyebrow">CONFIGURATION / 07</div><h1>Settings</h1><p>Local connection and application information.</p></div></div><div class="settings-grid"><section class="panel settings-panel"><div class="eyebrow">CONNECTION</div><h2>API authentication</h2><p>When COMMITMENTGRAPH_API_KEY is configured on the server, enter the same key here. It is stored only in this browser's local storage.</p><label>API key<input id="settings-key" type="password" placeholder="Paste server API key"></label><button class="btn btn-primary" id="save-key">Save API key</button></section><section class="panel settings-panel"><div class="eyebrow">APPLICATION</div><h2>CommitmentGraph 1.0.0</h2><dl><dt>Storage</dt><dd>SQLite database</dd><dt>Analysis</dt><dd>Deterministic rule engine</dd><dt>Evidence types</dt><dd>PDF, DOCX, TXT, MD, CSV, JSON, LOG</dd><dt>API documentation</dt><dd><a href="/api/docs" target="_blank" rel="noreferrer">Open API reference ↗</a></dd></dl></section></div></section>
+      </div>
+      <footer class="footer"><span>COMMITMENTGRAPH / EVIDENCE-LED COMMITMENT INTELLIGENCE</span><span>V1.0.0 · SELF-HOSTED</span></footer>
+    </main>
+  </div>
+  <div class="modal-backdrop" id="modal-backdrop" hidden><section class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div class="modal-head"><div><div class="eyebrow">WORKSPACE ACTION</div><h2 id="modal-title">New commitment</h2></div><button class="icon-btn" id="modal-close" aria-label="Close">×</button></div><div id="modal-body"></div></section></div>
+  <div class="toast" id="toast" role="status"></div>
+  <script src="/static/app.js" defer></script>
+  <script src="/static/enhancements.js" defer></script>
+</body>
+</html>
