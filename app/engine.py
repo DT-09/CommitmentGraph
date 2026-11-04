@@ -36,14 +36,17 @@ def investigate(today: date | None = None) -> dict[str, int]:
                     rules.append(("INVALID_DUE_DATE", "low", "Due date cannot be interpreted",
                                   f"Stored due date '{c['due_date']}' is not an ISO date.", []))
             unapproved = [e for e in events if e["event_type"].lower() in
-                          ("scope_change", "amendment", "requirement_change") and not e["approved"]]
+                          ("scope_change", "amendment", "requirement_change")
+                          and (not e["approved"] or not e["source_id"])]
             if unapproved:
-                rules.append(("UNAPPROVED_CHANGE", "critical", "Change recorded without approval",
-                              f"{len(unapproved)} change event(s) are marked unapproved. Review the underlying source before accepting the change.",
+                not_reviewed = sum(not e["approved"] for e in unapproved)
+                missing_source = sum(not e["source_id"] for e in unapproved)
+                rules.append(("UNAPPROVED_CHANGE", "critical", "Change lacks substantiated approval",
+                              f"{len(unapproved)} change event(s) need review: {not_reviewed} are not marked as approval evidence reviewed and {missing_source} have no linked source record.",
                               [e["source_id"] for e in unapproved if e["source_id"]]))
             if c["status"] == "fulfilled":
                 deliveries = [e for e in events if e["event_type"].lower() in
-                              ("delivery", "handover", "completion", "acceptance")]
+                              ("delivery", "handover", "completion", "acceptance") and e["source_id"]]
                 if not deliveries:
                     rules.append(("FULFILMENT_UNSUPPORTED", "medium", "Fulfilment has no linked delivery evidence",
                                   "The commitment is marked fulfilled, but no delivery, handover, completion, or acceptance event is recorded.",

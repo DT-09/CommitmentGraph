@@ -51,3 +51,41 @@ def test_graph_connects_commitment_event_evidence_and_finding(tmp_path,monkeypat
     types={n["type"] for n in graph["nodes"]}
     assert types=={"commitment","event","evidence","finding"}
     assert any(e["type"]=="evidenced_by" for e in graph["edges"])
+
+
+def test_fulfilment_event_without_source_does_not_count_as_evidence(tmp_path,monkeypatch):
+    seed(tmp_path,monkeypatch)
+    stamp=now_iso()
+    with db.transaction() as conn:
+        conn.execute("""INSERT INTO commitments
+          (id,title,status,currency,created_at,updated_at)
+          VALUES('C-2','Complete commissioning','fulfilled','USD',?,?)""",(stamp,stamp))
+        conn.execute("""INSERT INTO events
+          (id,commitment_id,event_type,description,occurred_at,approved,created_at)
+          VALUES('E-2','C-2','acceptance','Customer accepted the work',?,1,?)""",(stamp,stamp))
+    investigate(today=date(2026,1,1))
+    with db.connect() as conn:
+        finding=conn.execute("SELECT rule_code FROM findings WHERE commitment_id='C-2'").fetchone()
+    assert finding["rule_code"]=="FULFILMENT_UNSUPPORTED"
+    with db.transaction() as conn:
+        conn.execute("UPDATE events SET source_id='D-1' WHERE id='E-2'")
+    investigate(today=date(2026,1,1))
+    with db.connect() as conn:
+        finding=conn.execute("SELECT status FROM findings WHERE commitment_id='C-2' AND rule_code='FULFILMENT_UNSUPPORTED'").fetchone()
+    assert finding["status"]=="resolved"
+
+
+def test_approval_flag_without_linked_source_is_still_a_review_signal(tmp_path,monkeypatch):
+    seed(tmp_path,monkeypatch)
+    stamp=now_iso()
+    with db.transaction() as conn:
+        conn.execute("""INSERT INTO commitments
+          (id,title,status,currency,created_at,updated_at)
+          VALUES('C-2','Approve revised specification','open','USD',?,?)""",(stamp,stamp))
+        conn.execute("""INSERT INTO events
+          (id,commitment_id,event_type,description,occurred_at,approved,created_at)
+          VALUES('E-2','C-2','amendment','Specification amended',?,1,?)""",(stamp,stamp))
+    investigate(today=date(2026,1,1))
+    with db.connect() as conn:
+        finding=conn.execute("SELECT rule_code FROM findings WHERE commitment_id='C-2'").fetchone()
+    assert finding["rule_code"]=="UNAPPROVED_CHANGE"
