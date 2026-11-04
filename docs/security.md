@@ -8,6 +8,7 @@
 - Parameterized SQLite queries.
 - Upload allowlist and 12 MB per-file limit.
 - SHA-256 content hashing and duplicate detection.
+- Original uploaded bytes retained with extracted text for source re-download.
 - Extracted text is served as JSON and escaped by the browser UI.
 - Container runs as a non-root user with dropped Linux capabilities.
 - Persistent data is isolated in a Docker volume.
@@ -25,6 +26,6 @@
 
 ## Known limitations
 
-The application stores extracted text rather than original file binaries. A file's SHA-256 digest identifies the uploaded bytes but does not establish authenticity, authorship, signature validity or chain of custody. API-key authentication is a shared-secret gate, not individual identity or role-based access control. The browser stores the entered key in local storage. Use a private, managed workstation.
+Original files and extracted text are stored together for new uploads. Records created before v1.0.1 remain text-only because their original bytes were not retained. A file's SHA-256 digest identifies the uploaded bytes but does not establish authenticity, authorship, signature validity or chain of custody. API-key authentication is a shared-secret gate, not individual identity or role-based access control. The browser stores the entered key in local storage. Use a private, managed workstation.
 
 Do not use findings as legal advice, proof of fraud, or a substitute for professional contract, accounting or compliance review.

@@ -5,7 +5,7 @@
 CommitmentGraph stores four connected record classes:
 
 - Commitments: obligations with counterparty, owner, status, due date, declared value and optional source record.
-- Evidence: uploaded source files, extracted text, media type, byte size and SHA-256 content digest.
+- Evidence: original uploaded file bytes, extracted text, media type, byte size and SHA-256 content digest. Original bytes remain downloadable for independent inspection.
 - Events: dated changes or fulfilment events attached to a commitment, with an explicit approval flag and optional source record.
 - Findings: deterministic rule-engine results, including rule code, severity, reasoning, lifecycle status and evidence IDs.
 
@@ -14,7 +14,7 @@ The relationship graph is derived from these records. It is not a separate sourc
 ## Processing path
 
 1. An operator uploads a supported source file or imports a commitment CSV.
-2. The parser extracts text and computes a SHA-256 digest. Duplicate content is detected.
+2. The parser preserves original bytes, extracts searchable text and computes a SHA-256 digest. Duplicate content is detected. Existing text-only records are migrated with an empty original-file field and remain explicitly marked as legacy.
 3. The operator creates commitments and records events. Source IDs can be attached through the API.
 4. The investigation engine evaluates explicit rules.
 5. Findings are persisted and can be reviewed or resolved.

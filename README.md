@@ -8,7 +8,8 @@ CommitmentGraph is a self-hosted operational investigation workspace for project
 
 - Maintain a structured register of business commitments.
 - Upload source records in PDF, DOCX, TXT, MD, CSV, JSON and LOG formats.
-- Extract searchable text and compute SHA-256 content digests.
+- Preserve the original uploaded file, extract searchable text and compute SHA-256 content digests.
+- Download the original source file from its evidence record for independent inspection.
 - Import commitment registers from CSV.
 - Record amendments, scope changes, delivery, handover, acceptance and billing events.
 - Link source evidence to commitments and events.

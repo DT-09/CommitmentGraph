@@ -43,3 +43,31 @@ document.addEventListener("click",async e=>{
   const link=e.target.closest("a.download-link");if(!link)return;e.preventDefault();
   try{const response=await fetch(link.href,{headers:{"x-api-key":apiKey()}});if(!response.ok)throw new Error("Export failed ("+response.status+"). Check the API key.");const blob=await response.blob();const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=link.href.endsWith(".csv")?link.href.split("/").pop():"commitmentgraph-graph.json";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url)}catch(err){toast(err.message)}
 },true);
+
+
+// Preserve access to the exact uploaded source alongside extracted text.
+async function inspectEvidence(id){
+  try{
+    const d=await api("/api/evidence/"+encodeURIComponent(id));
+    const original=d.original_available
+      ? '<button class="btn btn-quiet" data-download-evidence="'+esc(d.id)+'" data-filename="'+esc(d.filename)+'">Download original file</button>'
+      : '<span class="finding-meta">Original file unavailable for this legacy record.</span>';
+    openModal("Source record · "+d.filename,
+      '<div class="eyebrow">SHA-256 '+esc(d.sha256)+'</div><div class="form-actions" style="justify-content:flex-start;margin:0 0 14px">'+original+'</div>'+
+      '<pre style="white-space:pre-wrap;max-height:55vh;overflow:auto;background:#111914;border:1px solid var(--line);padding:14px;border-radius:6px;color:#bdc8bc;font:10px/1.6 DM Mono">'+esc(d.extracted_text)+'</pre>'+
+      '<div class="form-actions"><button class="btn btn-primary" id="close-detail">Close</button></div>');
+    $("#close-detail").onclick=closeModal;
+  }catch(e){toast(e.message)}
+}
+async function downloadOriginalEvidence(id,filename){
+  try{
+    const response=await fetch("/api/evidence/"+encodeURIComponent(id)+"/original",{headers:{"x-api-key":apiKey()}});
+    if(!response.ok){let message="Download failed ("+response.status+").";try{message=(await response.json()).detail||message}catch{}throw new Error(message)}
+    const blob=await response.blob(),url=URL.createObjectURL(blob),a=document.createElement("a");
+    a.href=url;a.download=filename||("source-"+id);document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+  }catch(e){toast(e.message)}
+}
+document.addEventListener("click",e=>{
+  const b=e.target.closest("[data-download-evidence]");
+  if(b)downloadOriginalEvidence(b.dataset.downloadEvidence,b.dataset.filename);
+});
