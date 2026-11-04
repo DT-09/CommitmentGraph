@@ -290,6 +290,10 @@ def commitments_csv():
 
 @app.get("/", include_in_schema=False)
 def home():
+    return FileResponse(STATIC / "marketing.html")
+
+@app.get("/workspace", include_in_schema=False)
+def workspace():
     return FileResponse(STATIC / "index.html")
 
 app.mount("/static", StaticFiles(directory=STATIC), name="static")

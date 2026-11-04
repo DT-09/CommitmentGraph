@@ -44,9 +44,9 @@ Replace the example API key with a unique secret, then:
 
 Open http://localhost:8000 and enter the same API key in Settings. Docker Compose persists records in the commitmentgraph_data volume.
 
-For public deployment, put the service behind HTTPS and restrict access. Review docs/security.md before uploading business records.
+For a public website plus separately hosted API, follow [docs/cloudflare-pages.md](docs/cloudflare-pages.md). A Pages deployment alone does not run the Python API or provide persistent storage. Restrict workspace access before uploading business records; review [docs/security.md](docs/security.md).
 
-## First use
+## Public website and workspace\n\nThe public product website is served at `/`. The operational workspace is served at `/workspace`. Cloudflare Pages serves the static site and proxies `/api/*` through a Pages Function to a separately deployed FastAPI service. See [docs/cloudflare-pages.md](docs/cloudflare-pages.md) for required environment variables, access protection and deployment steps.\n\nVersion 1 is a single shared workspace, not a multi-tenant SaaS product. Do not expose a live customer workspace without an access gateway and a dedicated deployment/database.\n\n## First use
 
 For a clearly synthetic walkthrough, seed an empty local database with a sample project:
 
