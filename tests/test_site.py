@@ -13,8 +13,8 @@ def test_public_site_and_workspace_routes(tmp_path, monkeypatch):
         stylesheet = client.get("/static/site.css")
 
     assert landing.status_code == 200
-    assert "Know what was promised" in landing.text
+    assert "See the whole" in landing.text
     assert workspace.status_code == 200
     assert "Commitment overview" in workspace.text
     assert stylesheet.status_code == 200
-    assert "--bg:#101713" in stylesheet.text
+    assert "--bg:#0b0b0a" in stylesheet.text
