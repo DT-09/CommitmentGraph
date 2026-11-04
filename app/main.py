@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
 import os
 import secrets
@@ -156,12 +157,15 @@ def evidence_detail(evidence_id: str):
 @app.get("/api/evidence/{evidence_id}/original", dependencies=[Depends(authorize)])
 def download_evidence_original(evidence_id: str):
     with connect() as conn:
-        row = conn.execute("SELECT filename,media_type,file_bytes FROM evidence WHERE id=?", (evidence_id,)).fetchone()
+        row = conn.execute("SELECT filename,media_type,file_bytes,sha256 FROM evidence WHERE id=?", (evidence_id,)).fetchone()
     if not row: raise HTTPException(404, "Evidence not found.")
     if not row["file_bytes"]:
         raise HTTPException(410, "The original file is unavailable for this legacy evidence record.")
+    raw = bytes(row["file_bytes"])
+    if not secrets.compare_digest(hashlib.sha256(raw).hexdigest(), row["sha256"]):
+        raise HTTPException(500, "Stored source bytes failed SHA-256 integrity verification.")
     filename = quote(Path(row["filename"]).name, safe="")
-    return Response(content=bytes(row["file_bytes"]), media_type=row["media_type"] or "application/octet-stream",
+    return Response(content=raw, media_type=row["media_type"] or "application/octet-stream",
                     headers={"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"})
 
 @app.post("/api/evidence", status_code=201, dependencies=[Depends(authorize)])
