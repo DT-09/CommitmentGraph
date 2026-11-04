@@ -48,6 +48,12 @@ For public deployment, put the service behind HTTPS and restrict access. Review 
 
 ## First use
 
+For a clearly synthetic walkthrough, seed an empty local database with a sample project:
+
+    python -m app.seed_demo
+
+The seeder refuses to run when the workspace already contains records. Every sample source document is labelled synthetic; do not present sample findings as customer outcomes. For Docker, run `docker compose exec commitmentgraph python -m app.seed_demo` after the service starts.
+
 1. Upload contracts, quotations, amendments, delivery records or other source documents.
 2. Create commitments and specify the obligation, counterparty, owner, due date and declared value.
 3. Record dated events and link the source record that supports each event.
