@@ -21,3 +21,5 @@ jobs:
         with:
           node-version: 22
       - run: node --check static/app.js && node --check static/enhancements.js
+      - run: docker build --tag commitmentgraph:ci .
+      - run: COMMITMENTGRAPH_API_KEY=ci-test-secret PORT=8000 docker compose config -q
