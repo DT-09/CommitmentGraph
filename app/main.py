@@ -8,23 +8,35 @@ import secrets
 import uuid
 from pathlib import Path
 from typing import Any
+from datetime import date
 
 from fastapi import FastAPI, File, Header, HTTPException, UploadFile, Depends
 from fastapi.responses import FileResponse, Response, StreamingResponse
 from urllib.parse import quote
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from .db import connect, initialize, transaction
 from .engine import investigate, graph_data, now_iso
-from .parsers import extract_file, parse_commitment_csv, MAX_UPLOAD_BYTES
+from .parsers import extract_file, parse_commitment_csv, spreadsheet_safe, MAX_UPLOAD_BYTES
 
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / "static"
 API_KEY = os.getenv("COMMITMENTGRAPH_API_KEY", "").strip()
-app = FastAPI(title="CommitmentGraph", version="1.0.1",
+app = FastAPI(title="CommitmentGraph", version="1.1.0",
               description="Evidence-linked business commitment reconstruction.",
               docs_url="/api/docs", redoc_url=None)
+
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
 
 def authorize(x_api_key: str | None = Header(default=None)):
     if API_KEY and not secrets.compare_digest(x_api_key or "", API_KEY):
@@ -38,20 +50,67 @@ class CommitmentIn(BaseModel):
     owner: str = Field(default="", max_length=200)
     status: str = Field(default="open", pattern="^(open|in_progress|fulfilled|cancelled|blocked)$")
     due_date: str | None = None
-    value: float | None = Field(default=None, ge=0)
-    currency: str = Field(default="USD", min_length=3, max_length=3)
-    source_id: str | None = None
+    value: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    currency: str = Field(default="USD", pattern="^[A-Za-z]{3}$")
+    source_id: str | None = Field(default=None, max_length=80)
+
+    @field_validator("due_date")
+    @classmethod
+    def validate_due_date(cls, value: str | None) -> str | None:
+        if value is not None:
+            try:
+                date.fromisoformat(value)
+            except ValueError as exc:
+                raise ValueError("due_date must be a valid ISO date (YYYY-MM-DD).") from exc
+        return value
+
+    @field_validator("currency")
+    @classmethod
+    def normalize_currency(cls, value: str) -> str:
+        return value.upper()
 
 class EventIn(BaseModel):
     event_type: str = Field(min_length=2, max_length=80)
     description: str = Field(min_length=2, max_length=4000)
-    occurred_at: str | None = None
+    occurred_at: str | None = Field(default=None, max_length=40)
     approved: bool = False
-    source_id: str | None = None
+    source_id: str | None = Field(default=None, max_length=80)
+
+    @field_validator("occurred_at")
+    @classmethod
+    def validate_occurred_at(cls, value: str | None) -> str | None:
+        if value is not None:
+            try:
+                from datetime import datetime
+                datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise ValueError("occurred_at must be an ISO 8601 date or datetime.") from exc
+        return value
+
+class BundleEventIn(BaseModel):
+    commitment_title: str | None = Field(default=None, max_length=300)
+    commitment_id: str | None = Field(default=None, max_length=80)
+    event_type: str = Field(default="note", min_length=2, max_length=80)
+    description: str = Field(default="Imported event", min_length=2, max_length=4000)
+    occurred_at: str | None = Field(default=None, max_length=40)
+    approved: bool = False
+    source_id: str | None = Field(default=None, max_length=80)
+
+    @field_validator("occurred_at")
+    @classmethod
+    def validate_bundle_event_date(cls, value: str | None) -> str | None:
+        if value is not None:
+            try:
+                from datetime import datetime
+                datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise ValueError("occurred_at must be an ISO 8601 date or datetime.") from exc
+        return value
+
 
 class BundleIn(BaseModel):
     commitments: list[CommitmentIn] = Field(default_factory=list, max_length=500)
-    events: list[dict[str, Any]] = Field(default_factory=list, max_length=2000)
+    events: list[BundleEventIn] = Field(default_factory=list, max_length=2000)
 
 @app.on_event("startup")
 def startup():
@@ -59,7 +118,7 @@ def startup():
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "product": "CommitmentGraph", "version": "1.0.1"}
+    return {"status": "ok", "product": "CommitmentGraph", "version": "1.1.0"}
 
 @app.get("/api/overview", dependencies=[Depends(authorize)])
 def overview():
@@ -221,18 +280,17 @@ def import_bundle(data: BundleIn):
                item.value,item.currency.upper(),item.source_id,stamp,stamp))
             ids[item.title] = cid
         for item in data.events:
-            title = item.get("commitment_title")
-            cid = item.get("commitment_id") or ids.get(title)
+            title = item.commitment_title
+            cid = item.commitment_id or ids.get(title)
             if not cid or not conn.execute("SELECT 1 FROM commitments WHERE id=?", (cid,)).fetchone():
                 raise HTTPException(400, f"Event references unknown commitment: {title or cid}")
-            source_id = item.get("source_id")
+            source_id = item.source_id
             if source_id and not conn.execute("SELECT 1 FROM evidence WHERE id=?", (source_id,)).fetchone():
                 raise HTTPException(404, "Bundle references unknown source evidence.")
             conn.execute("""INSERT INTO events(id,commitment_id,event_type,description,occurred_at,approved,source_id,created_at)
               VALUES(?,?,?,?,?,?,?,?)""",
-              ("E-"+uuid.uuid4().hex[:10].upper(),cid,str(item.get("event_type","note")).lower(),
-               str(item.get("description","Imported event")),str(item.get("occurred_at") or stamp),
-               int(bool(item.get("approved",False))),source_id,stamp))
+              ("E-"+uuid.uuid4().hex[:10].upper(),cid,item.event_type.strip().lower(),
+               item.description,item.occurred_at or stamp,int(item.approved),source_id,stamp))
     return {"commitments_created": len(ids), "events_created": len(data.events), "ids": ids}
 
 @app.post("/api/investigate", dependencies=[Depends(authorize)])
@@ -271,7 +329,7 @@ def findings_csv():
     out = io.StringIO()
     writer = csv.writer(out)
     writer.writerow(["finding_id","severity","rule_code","finding","detail","status","commitment_id","commitment","counterparty","evidence_ids","first_seen_at","updated_at"])
-    for row in rows: writer.writerow(list(row))
+    for row in rows: writer.writerow([spreadsheet_safe(value) for value in row])
     out.seek(0)
     return StreamingResponse(iter([out.getvalue()]), media_type="text/csv",
       headers={"Content-Disposition":"attachment; filename=commitmentgraph-findings.csv"})
@@ -283,7 +341,7 @@ def commitments_csv():
     out = io.StringIO()
     writer = csv.writer(out)
     writer.writerow(["id","title","counterparty","description","owner","status","due_date","value","currency","source_id","created_at","updated_at"])
-    for row in rows: writer.writerow(list(row))
+    for row in rows: writer.writerow([spreadsheet_safe(value) for value in row])
     out.seek(0)
     return StreamingResponse(iter([out.getvalue()]), media_type="text/csv",
       headers={"Content-Disposition":"attachment; filename=commitmentgraph-commitments.csv"})

@@ -8,7 +8,10 @@ def test_health_and_commitment_flow(tmp_path,monkeypatch):
     monkeypatch.setattr(db,"DB_PATH",tmp_path/"api.sqlite3")
     db.initialize()
     with TestClient(app) as client:
-        assert client.get("/api/health").json()["status"]=="ok"
+        health=client.get("/api/health")
+        assert health.json()["status"]=="ok"
+        assert health.headers["x-content-type-options"]=="nosniff"
+        assert health.headers["cache-control"]=="no-store"
         created=client.post("/api/commitments",json={"title":"Deliver signed test report","counterparty":"Northstar"})
         assert created.status_code==201
         cid=created.json()["id"]
@@ -86,3 +89,43 @@ def test_original_download_detects_corrupted_stored_bytes(tmp_path,monkeypatch):
         response=client.get(f"/api/evidence/{evidence_id}/original")
         assert response.status_code==500
         assert "SHA-256" in response.json()["detail"]
+
+
+def test_commitment_api_rejects_invalid_dates_and_currency(tmp_path,monkeypatch):
+    monkeypatch.setattr(db,"DATA_DIR",tmp_path)
+    monkeypatch.setattr(db,"DB_PATH",tmp_path/"validation.sqlite3")
+    db.initialize()
+    with TestClient(app) as client:
+        invalid_date=client.post("/api/commitments",json={"title":"Deliver equipment","due_date":"2026-02-30"})
+        assert invalid_date.status_code==422
+        invalid_currency=client.post("/api/commitments",json={"title":"Deliver equipment","currency":"US"})
+        assert invalid_currency.status_code==422
+        valid=client.post("/api/commitments",json={"title":"Deliver equipment","currency":"eur"})
+        assert valid.status_code==201
+        with db.connect() as conn:
+            row=conn.execute("SELECT currency FROM commitments").fetchone()
+        assert row["currency"]=="EUR"
+
+
+def test_bundle_import_validates_event_payloads(tmp_path,monkeypatch):
+    monkeypatch.setattr(db,"DATA_DIR",tmp_path)
+    monkeypatch.setattr(db,"DB_PATH",tmp_path/"bundle.sqlite3")
+    db.initialize()
+    with TestClient(app) as client:
+        response=client.post("/api/import/bundle",json={
+            "commitments":[{"title":"Deliver equipment"}],
+            "events":[{"commitment_title":"Deliver equipment","event_type":"delivery","description":"Delivered","occurred_at":"not-a-date"}]
+        })
+        assert response.status_code==422
+
+
+def test_csv_export_neutralizes_formula_like_user_text(tmp_path,monkeypatch):
+    monkeypatch.setattr(db,"DATA_DIR",tmp_path)
+    monkeypatch.setattr(db,"DB_PATH",tmp_path/"csv-safety.sqlite3")
+    db.initialize()
+    with TestClient(app) as client:
+        created=client.post("/api/commitments",json={"title":"=HYPERLINK(\"https://example.com\")"})
+        assert created.status_code==201
+        response=client.get("/api/reports/commitments.csv")
+        assert response.status_code==200
+        assert "'=HYPERLINK(" in response.text

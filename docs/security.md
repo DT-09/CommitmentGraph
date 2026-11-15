@@ -1,31 +1,44 @@
 # Security and operational controls
 
+CommitmentGraph stores source documents and business records. Treat the database, backups, exports and API credentials as confidential business data.
+
 ## Included controls
 
-- Optional API-key authentication for all application data endpoints.
+- Optional shared API-key authentication for all application data endpoints.
 - Constant-time API-key comparison.
-- No user account system or third-party analytics.
-- Parameterized SQLite queries.
-- Upload allowlist and 12 MB per-file limit.
-- SHA-256 content hashing and duplicate detection.
+- Parameterized SQLite queries and foreign-key enforcement.
+- Baseline security headers on API responses and `Cache-Control: no-store` for API routes.
+- Upload allowlist, 12 MB file limit and a 500-page PDF processing ceiling.
+- Strict UTF-8 handling for text uploads and bounded text extraction.
+- SHA-256 content hashing, duplicate detection and original-file integrity checks.
 - Original uploaded bytes retained with extracted text for source re-download.
-- Extracted text is served as JSON and escaped by the browser UI.
+- Typed request validation for dates, currencies, statuses and event bundles.
+- CSV import validation for schema, row count, dates, statuses, currencies and finite non-negative values.
+- Spreadsheet-formula neutralization on CSV exports.
+- Extracted text is returned as JSON and escaped by the browser UI.
 - Container runs as a non-root user with dropped Linux capabilities.
 - Persistent data is isolated in a Docker volume.
+- Cloudflare Pages proxy injects its server-side API key and does not forward browser cookies.
 
 ## Required before production use
 
-1. Set a unique, high-entropy COMMITMENTGRAPH_API_KEY; never use the example value.
+1. Set a unique, high-entropy `COMMITMENTGRAPH_API_KEY` on the API service and the matching secret on the Pages project. Never use the example value.
 2. Put the service behind HTTPS. Do not expose port 8000 directly to the public internet.
-3. Restrict network access to named operators or a trusted identity-aware proxy.
-4. Encrypt the host volume and backups at rest.
-5. Define retention and deletion rules for source documents.
-6. Back up the SQLite database and test restoration.
-7. Review uploaded records for confidential, personal, export-controlled or regulated content.
-8. Rotate the API key after staff changes or suspected disclosure.
+3. Restrict workspace access to named operators through an identity-aware access gateway.
+4. Use a dedicated deployment and database per customer. The current product is a single shared workspace, not a multi-tenant SaaS service.
+5. Encrypt the host volume and backups at rest.
+6. Define retention, deletion and incident-response procedures for source documents.
+7. Back up the SQLite database and test restoration before relying on it.
+8. Review uploaded records for confidential, personal, export-controlled or regulated content.
+9. Rotate the API key after staff changes or suspected disclosure.
+10. Keep dependencies and the container base image patched; review CI results before release.
 
-## Known limitations
+## Authentication limits
 
-Original files and extracted text are stored together for new uploads. Records created before v1.0.1 remain text-only because their original bytes were not retained. A file's SHA-256 digest identifies the uploaded bytes but does not establish authenticity, authorship, signature validity or chain of custody. API-key authentication is a shared-secret gate, not individual identity or role-based access control. The browser stores the entered key in local storage. Use a private, managed workstation.
+When `COMMITMENTGRAPH_API_KEY` is unset, the API intentionally permits unauthenticated access for local development. This is not safe for a public deployment. A shared API key is a deployment gate, not individual identity, role-based access control, tenant isolation or an audit trail of who performed an action. The browser stores the entered key in local storage. Use a private, managed workstation and an access gateway for production.
 
-Do not use findings as legal advice, proof of fraud, or a substitute for professional contract, accounting or compliance review.
+## Evidence and analysis limits
+
+A SHA-256 digest identifies the exact uploaded bytes. It does not establish authenticity, authorship, signature validity, timestamp accuracy or legal chain of custody. OCR is not included; image-only PDFs may have no extractable text. Older records created before original-file retention remain text-only.
+
+Investigation findings are deterministic review signals based on structured records. They are not legal advice, proof of fraud, proof of approval or a substitute for professional contract, accounting or compliance review. Operators must inspect the original source records and document their decisions.

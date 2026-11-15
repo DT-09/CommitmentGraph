@@ -13,7 +13,7 @@ def _json_ids(values: list[str]) -> str:
 
 def investigate(today: date | None = None) -> dict[str, int]:
     """Recompute deterministic, explainable findings from stored records."""
-    today = today or date.today()
+    today = today or datetime.now(timezone.utc).date()
     stamp = now_iso()
     created = 0
     updated = 0

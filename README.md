@@ -4,6 +4,10 @@
 
 CommitmentGraph is a self-hosted operational investigation workspace for project-based businesses, engineering firms and industrial suppliers. It links obligations, dated events, source records and review findings into one inspectable relationship graph.
 
+## Product position
+
+CommitmentGraph is an evidence-linked control and investigation workspace. It turns fragmented obligation records into a structured register, a dated event history, traceable review findings and an inspectable relationship graph. It is designed to make review work faster and more defensible—not to replace the people accountable for commercial decisions.
+
 ## What the product does
 
 - Maintain a structured register of business commitments.
@@ -17,6 +21,17 @@ CommitmentGraph is a self-hosted operational investigation workspace for project
 - Inspect the reasoning behind every finding.
 - Explore a relationship graph connecting commitments, events, findings and source records.
 - Export commitment and finding registers as CSV.
+
+## Evidence integrity and review discipline
+
+- Original uploads are retained and can be downloaded for independent inspection.
+- SHA-256 digests identify the exact bytes received and are checked again when an original file is downloaded.
+- Duplicate uploads are detected by content digest.
+- Findings retain rule codes, reasoning, lifecycle state and linked evidence identifiers.
+- CSV imports validate the register schema, dates, statuses, currencies and numeric values.
+- CSV exports neutralize spreadsheet formula-like text cells.
+
+These controls improve traceability. They do not prove who created a file, when it was signed, whether a signature is valid, or whether a source is complete.
 
 ## What it does not claim
 
