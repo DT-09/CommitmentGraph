@@ -8,21 +8,23 @@ import secrets
 import uuid
 from pathlib import Path
 from typing import Any
+from datetime import date
+import math
 
 from fastapi import FastAPI, File, Header, HTTPException, UploadFile, Depends
 from fastapi.responses import FileResponse, Response, StreamingResponse
 from urllib.parse import quote
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from .db import connect, initialize, transaction
 from .engine import investigate, graph_data, now_iso
-from .parsers import extract_file, parse_commitment_csv, MAX_UPLOAD_BYTES
+from .parsers import extract_file, parse_commitment_csv, spreadsheet_safe, MAX_UPLOAD_BYTES
 
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / "static"
 API_KEY = os.getenv("COMMITMENTGRAPH_API_KEY", "").strip()
-app = FastAPI(title="CommitmentGraph", version="1.0.1",
+app = FastAPI(title="CommitmentGraph", version="1.1.0",
               description="Evidence-linked business commitment reconstruction.",
               docs_url="/api/docs", redoc_url=None)
 
@@ -38,16 +40,42 @@ class CommitmentIn(BaseModel):
     owner: str = Field(default="", max_length=200)
     status: str = Field(default="open", pattern="^(open|in_progress|fulfilled|cancelled|blocked)$")
     due_date: str | None = None
-    value: float | None = Field(default=None, ge=0)
-    currency: str = Field(default="USD", min_length=3, max_length=3)
-    source_id: str | None = None
+    value: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    currency: str = Field(default="USD", pattern="^[A-Za-z]{3}$")
+    source_id: str | None = Field(default=None, max_length=80)
+
+    @field_validator("due_date")
+    @classmethod
+    def validate_due_date(cls, value: str | None) -> str | None:
+        if value is not None:
+            try:
+                date.fromisoformat(value)
+            except ValueError as exc:
+                raise ValueError("due_date must be a valid ISO date (YYYY-MM-DD).") from exc
+        return value
+
+    @field_validator("currency")
+    @classmethod
+    def normalize_currency(cls, value: str) -> str:
+        return value.upper()
 
 class EventIn(BaseModel):
     event_type: str = Field(min_length=2, max_length=80)
     description: str = Field(min_length=2, max_length=4000)
-    occurred_at: str | None = None
+    occurred_at: str | None = Field(default=None, max_length=40)
     approved: bool = False
-    source_id: str | None = None
+    source_id: str | None = Field(default=None, max_length=80)
+
+    @field_validator("occurred_at")
+    @classmethod
+    def validate_occurred_at(cls, value: str | None) -> str | None:
+        if value is not None:
+            try:
+                from datetime import datetime
+                datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise ValueError("occurred_at must be an ISO 8601 date or datetime.") from exc
+        return value
 
 class BundleIn(BaseModel):
     commitments: list[CommitmentIn] = Field(default_factory=list, max_length=500)
@@ -59,7 +87,7 @@ def startup():
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "product": "CommitmentGraph", "version": "1.0.1"}
+    return {"status": "ok", "product": "CommitmentGraph", "version": "1.1.0"}
 
 @app.get("/api/overview", dependencies=[Depends(authorize)])
 def overview():
@@ -271,7 +299,7 @@ def findings_csv():
     out = io.StringIO()
     writer = csv.writer(out)
     writer.writerow(["finding_id","severity","rule_code","finding","detail","status","commitment_id","commitment","counterparty","evidence_ids","first_seen_at","updated_at"])
-    for row in rows: writer.writerow(list(row))
+    for row in rows: writer.writerow([spreadsheet_safe(value) for value in row])
     out.seek(0)
     return StreamingResponse(iter([out.getvalue()]), media_type="text/csv",
       headers={"Content-Disposition":"attachment; filename=commitmentgraph-findings.csv"})
