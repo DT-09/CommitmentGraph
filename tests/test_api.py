@@ -8,7 +8,10 @@ def test_health_and_commitment_flow(tmp_path,monkeypatch):
     monkeypatch.setattr(db,"DB_PATH",tmp_path/"api.sqlite3")
     db.initialize()
     with TestClient(app) as client:
-        assert client.get("/api/health").json()["status"]=="ok"
+        health=client.get("/api/health")
+        assert health.json()["status"]=="ok"
+        assert health.headers["x-content-type-options"]=="nosniff"
+        assert health.headers["cache-control"]=="no-store"
         created=client.post("/api/commitments",json={"title":"Deliver signed test report","counterparty":"Northstar"})
         assert created.status_code==201
         cid=created.json()["id"]
