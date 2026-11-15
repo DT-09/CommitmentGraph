@@ -330,7 +330,7 @@ def commitments_csv():
     out = io.StringIO()
     writer = csv.writer(out)
     writer.writerow(["id","title","counterparty","description","owner","status","due_date","value","currency","source_id","created_at","updated_at"])
-    for row in rows: writer.writerow(list(row))
+    for row in rows: writer.writerow([spreadsheet_safe(value) for value in row])
     out.seek(0)
     return StreamingResponse(iter([out.getvalue()]), media_type="text/csv",
       headers={"Content-Disposition":"attachment; filename=commitmentgraph-commitments.csv"})
