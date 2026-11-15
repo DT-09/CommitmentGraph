@@ -114,3 +114,15 @@ def test_bundle_import_validates_event_payloads(tmp_path,monkeypatch):
             "events":[{"commitment_title":"Deliver equipment","event_type":"delivery","description":"Delivered","occurred_at":"not-a-date"}]
         })
         assert response.status_code==422
+
+
+def test_csv_export_neutralizes_formula_like_user_text(tmp_path,monkeypatch):
+    monkeypatch.setattr(db,"DATA_DIR",tmp_path)
+    monkeypatch.setattr(db,"DB_PATH",tmp_path/"csv-safety.sqlite3")
+    db.initialize()
+    with TestClient(app) as client:
+        created=client.post("/api/commitments",json={"title":"=HYPERLINK(\"https://example.com\")"})
+        assert created.status_code==201
+        response=client.get("/api/reports/commitments.csv")
+        assert response.status_code==200
+        assert "'=HYPERLINK(" in response.text
