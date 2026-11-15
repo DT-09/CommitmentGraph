@@ -27,6 +27,17 @@ app = FastAPI(title="CommitmentGraph", version="1.1.0",
               description="Evidence-linked business commitment reconstruction.",
               docs_url="/api/docs", redoc_url=None)
 
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
 def authorize(x_api_key: str | None = Header(default=None)):
     if API_KEY and not secrets.compare_digest(x_api_key or "", API_KEY):
         raise HTTPException(status_code=401, detail="A valid API key is required.")
