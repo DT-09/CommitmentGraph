@@ -7,6 +7,7 @@ CommitmentGraph stores source documents and business records. Treat the database
 - Optional shared API-key authentication for all application data endpoints.
 - Constant-time API-key comparison.
 - Parameterized SQLite queries and foreign-key enforcement.
+- Baseline security headers on API responses and `Cache-Control: no-store` for API routes.
 - Upload allowlist, 12 MB file limit and a 500-page PDF processing ceiling.
 - Strict UTF-8 handling for text uploads and bounded text extraction.
 - SHA-256 content hashing, duplicate detection and original-file integrity checks.
