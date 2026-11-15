@@ -26,7 +26,10 @@ def extract_file(filename: str, media_type: str, raw: bytes) -> tuple[str, str]:
 
     digest = hashlib.sha256(raw).hexdigest()
     if suffix in ALLOWED_TEXT_SUFFIXES:
-        text = raw.decode("utf-8-sig", errors="strict")
+        try:
+            text = raw.decode("utf-8-sig", errors="strict")
+        except UnicodeDecodeError as exc:
+            raise ValueError("Text files must use UTF-8 encoding.") from exc
     elif suffix == ".pdf":
         from pypdf import PdfReader
         try:
@@ -109,6 +112,9 @@ def parse_commitment_csv(text: str) -> list[dict[str, Any]]:
         currency = (normalized.get("currency") or "USD").upper()
         if not re.fullmatch(r"[A-Z]{3}", currency):
             raise ValueError(f"Invalid currency on CSV line {line}; use a three-letter currency code.")
+
+        if len(rows) >= 500:
+            raise ValueError("CSV import is limited to 500 commitments per file.")
 
         rows.append({
             "title": title,
