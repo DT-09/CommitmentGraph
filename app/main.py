@@ -9,7 +9,6 @@ import uuid
 from pathlib import Path
 from typing import Any
 from datetime import date
-import math
 
 from fastapi import FastAPI, File, Header, HTTPException, UploadFile, Depends
 from fastapi.responses import FileResponse, Response, StreamingResponse
@@ -77,9 +76,30 @@ class EventIn(BaseModel):
                 raise ValueError("occurred_at must be an ISO 8601 date or datetime.") from exc
         return value
 
+class BundleEventIn(BaseModel):
+    commitment_title: str | None = Field(default=None, max_length=300)
+    commitment_id: str | None = Field(default=None, max_length=80)
+    event_type: str = Field(default="note", min_length=2, max_length=80)
+    description: str = Field(default="Imported event", min_length=2, max_length=4000)
+    occurred_at: str | None = Field(default=None, max_length=40)
+    approved: bool = False
+    source_id: str | None = Field(default=None, max_length=80)
+
+    @field_validator("occurred_at")
+    @classmethod
+    def validate_bundle_event_date(cls, value: str | None) -> str | None:
+        if value is not None:
+            try:
+                from datetime import datetime
+                datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise ValueError("occurred_at must be an ISO 8601 date or datetime.") from exc
+        return value
+
+
 class BundleIn(BaseModel):
     commitments: list[CommitmentIn] = Field(default_factory=list, max_length=500)
-    events: list[dict[str, Any]] = Field(default_factory=list, max_length=2000)
+    events: list[BundleEventIn] = Field(default_factory=list, max_length=2000)
 
 @app.on_event("startup")
 def startup():
@@ -249,18 +269,17 @@ def import_bundle(data: BundleIn):
                item.value,item.currency.upper(),item.source_id,stamp,stamp))
             ids[item.title] = cid
         for item in data.events:
-            title = item.get("commitment_title")
-            cid = item.get("commitment_id") or ids.get(title)
+            title = item.commitment_title
+            cid = item.commitment_id or ids.get(title)
             if not cid or not conn.execute("SELECT 1 FROM commitments WHERE id=?", (cid,)).fetchone():
                 raise HTTPException(400, f"Event references unknown commitment: {title or cid}")
-            source_id = item.get("source_id")
+            source_id = item.source_id
             if source_id and not conn.execute("SELECT 1 FROM evidence WHERE id=?", (source_id,)).fetchone():
                 raise HTTPException(404, "Bundle references unknown source evidence.")
             conn.execute("""INSERT INTO events(id,commitment_id,event_type,description,occurred_at,approved,source_id,created_at)
               VALUES(?,?,?,?,?,?,?,?)""",
-              ("E-"+uuid.uuid4().hex[:10].upper(),cid,str(item.get("event_type","note")).lower(),
-               str(item.get("description","Imported event")),str(item.get("occurred_at") or stamp),
-               int(bool(item.get("approved",False))),source_id,stamp))
+              ("E-"+uuid.uuid4().hex[:10].upper(),cid,item.event_type.strip().lower(),
+               item.description,item.occurred_at or stamp,int(item.approved),source_id,stamp))
     return {"commitments_created": len(ids), "events_created": len(data.events), "ids": ids}
 
 @app.post("/api/investigate", dependencies=[Depends(authorize)])
